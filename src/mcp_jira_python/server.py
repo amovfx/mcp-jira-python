@@ -189,6 +189,7 @@ async def update_issue(
     assignee: str = None,
     status: str = None,
     priority: str = None,
+    sprint: str = None,
 ) -> str:
     """Update an existing issue.
 
@@ -199,6 +200,7 @@ async def update_issue(
         assignee: New assignee email
         status: New status
         priority: New priority
+        sprint: Sprint ID to move the issue to
     """
     update_fields = {}
     if summary:
@@ -211,6 +213,8 @@ async def update_issue(
         update_fields["status"] = {"name": status}
     if priority:
         update_fields["priority"] = {"name": priority}
+    if sprint:
+        update_fields["customfield_10020'"] = sprint  # Sprint field
 
     issue = jira.issue(issueKey)
     issue.update(fields=update_fields)
@@ -387,6 +391,43 @@ async def add_comment_with_attachment(
             )
 
     return f'{{"message": "Comment and attachment added successfully", "comment_id": "{comment_obj.id}", "attachment_id": "{attachment_obj.id}"}}'
+
+
+@mcp.tool(
+    name="get_project_sprints",
+    description="Get all sprints for a project",
+)
+async def get_project_sprints(projectKey: str, state: str = None) -> str:
+    """Get all sprints for a project.
+
+    Args:
+        projectKey: The project key to get sprints for
+        state: Optional filter for sprint state ('active', 'future', 'closed')
+    """
+    boards = jira.boards(projectKeyOrID=projectKey)
+    if not boards:
+        return '{"message": "No boards found for this project"}'
+
+    all_sprints = []
+    for board in boards:
+        sprints = jira.sprints(board.id, state=state)
+        for sprint in sprints:
+            all_sprints.append(
+                {
+                    "id": sprint.id,
+                    "name": sprint.name,
+                    "state": sprint.state,
+                    "startDate": (
+                        str(sprint.startDate) if hasattr(sprint, "startDate") else None
+                    ),
+                    "endDate": (
+                        str(sprint.endDate) if hasattr(sprint, "endDate") else None
+                    ),
+                    "boardId": board.id,
+                }
+            )
+
+    return str(all_sprints)
 
 
 if __name__ == "__main__":
