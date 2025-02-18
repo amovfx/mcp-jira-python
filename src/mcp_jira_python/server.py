@@ -430,5 +430,36 @@ async def get_project_sprints(projectKey: str, state: str = None) -> str:
     return str(all_sprints)
 
 
+@mcp.tool(
+    name="transition_issue",
+    description="Transition a Jira issue to a new status",
+)
+async def transition_issue(issueKey: str, transition_name: str) -> str:
+    """Transition an issue to a new status.
+
+    Args:
+        issueKey: Key of the issue to transition
+        transition_name: Name of the transition to perform (e.g., 'In Progress', 'Done')
+    """
+    issue = jira.issue(issueKey)
+    transitions = jira.transitions(issue)
+
+    # Find the transition id that matches the requested name
+    transition_id = None
+    for t in transitions:
+        if t["name"].lower() == transition_name.lower():
+            transition_id = t["id"]
+            break
+
+    if not transition_id:
+        available_transitions = [t["name"] for t in transitions]
+        raise ValueError(
+            f"Transition '{transition_name}' not found. Available transitions: {available_transitions}"
+        )
+
+    jira.transition_issue(issue, transition_id)
+    return f'{{"message": "Issue {issueKey} transitioned to {transition_name} successfully"}}'
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
