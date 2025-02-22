@@ -461,5 +461,126 @@ async def transition_issue(issueKey: str, transition_name: str) -> str:
     return f'{{"message": "Issue {issueKey} transitioned to {transition_name} successfully"}}'
 
 
+@mcp.tool(
+    name="get_jira_boards",
+    description="Get all Jira boards, optionally filtered by project",
+)
+async def get_jira_boards(projectKey: str = None) -> str:
+    """Get all Jira boards, optionally filtered by project.
+
+    Args:
+        projectKey: Optional project key to filter boards
+    """
+    boards = jira.boards(projectKeyOrID=projectKey) if projectKey else jira.boards()
+
+    return str(
+        [
+            {
+                "id": board.id,
+                "name": board.name,
+                "type": board.type,
+                "location": {
+                    "projectName": (
+                        board.location.get("projectName")
+                        if hasattr(board, "location")
+                        else None
+                    )
+                },
+            }
+            for board in boards
+        ]
+    )
+
+
+@mcp.tool(
+    name="get_board_sprints",
+    description="Get all sprints from a Jira board, optionally filtered by state",
+)
+async def get_board_sprints(boardId: int, state: str = None) -> str:
+    """Get all sprints from a board.
+
+    Args:
+        boardId: ID of the board to get sprints from
+        state: Optional filter for sprint state ('active', 'future', 'closed')
+    """
+    sprints = jira.sprints(board_id=boardId, state=state)
+
+    return str(
+        [
+            {
+                "id": sprint.id,
+                "name": sprint.name,
+                "state": sprint.state,
+                "startDate": (
+                    str(sprint.startDate) if hasattr(sprint, "startDate") else None
+                ),
+                "endDate": str(sprint.endDate) if hasattr(sprint, "endDate") else None,
+            }
+            for sprint in sprints
+        ]
+    )
+
+
+@mcp.tool(
+    name="add_issues_to_sprint",
+    description="Add one or more Jira issues to a sprint",
+)
+async def add_issues_to_sprint(sprintId: int, issueKeys: list[str]) -> str:
+    """Add issues to a sprint.
+
+    Args:
+        sprintId: ID of the sprint to add issues to
+        issueKeys: List of issue keys to add
+    """
+    for issue_key in issueKeys:
+        jira.add_issues_to_sprint(sprint_id=sprintId, issue_keys=[issue_key])
+
+    return str(
+        {
+            "message": f"Successfully added {len(issueKeys)} issues to sprint {sprintId}",
+            "issues": issueKeys,
+        }
+    )
+
+
+@mcp.tool(
+    name="create_sprint",
+    description="Create a new sprint in a board",
+)
+async def create_sprint(
+    boardId: int,
+    name: str,
+    startDate: str = None,
+    endDate: str = None,
+    goal: str = None,
+) -> str:
+    """Create a new sprint in a board.
+
+    Args:
+        boardId: ID of the board to create the sprint in
+        name: Name of the sprint
+        startDate: Optional start date in format YYYY-MM-DD
+        endDate: Optional end date in format YYYY-MM-DD
+        goal: Optional sprint goal
+    """
+    sprint = jira.create_sprint(
+        name=name, board_id=boardId, startDate=startDate, endDate=endDate, goal=goal
+    )
+
+    return str(
+        {
+            "id": sprint.id,
+            "name": sprint.name,
+            "state": sprint.state,
+            "startDate": (
+                str(sprint.startDate) if hasattr(sprint, "startDate") else None
+            ),
+            "endDate": str(sprint.endDate) if hasattr(sprint, "endDate") else None,
+            "goal": sprint.goal if hasattr(sprint, "goal") else None,
+            "boardId": boardId,
+        }
+    )
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
