@@ -479,13 +479,6 @@ async def get_jira_boards(projectKey: str = None) -> str:
                 "id": board.id,
                 "name": board.name,
                 "type": board.type,
-                "location": {
-                    "projectName": (
-                        board.location.get("projectName")
-                        if hasattr(board, "location")
-                        else None
-                    )
-                },
             }
             for board in boards
         ]
